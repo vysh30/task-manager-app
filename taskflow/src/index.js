@@ -14,49 +14,77 @@ const { errorHandler } = require('./middleware/errorHandler');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Security & logging
+// --------------------
+// SECURITY & LOGGING
+// --------------------
 app.use(helmet());
 app.use(morgan('dev'));
+
 app.use(cors({
   origin: process.env.FRONTEND_URL || '*',
   credentials: true,
 }));
 
-// Rate limiting
+// --------------------
+// RATE LIMITING
+// --------------------
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 min
+  windowMs: 15 * 60 * 1000,
   max: 100,
   message: { error: 'Too many requests, please try again later.' },
 });
 app.use('/api/', limiter);
 
-// Body parsing
+// --------------------
+// BODY PARSING
+// --------------------
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Health check
+// --------------------
+// SERVE FRONTEND (IMPORTANT)
+// --------------------
+app.use(express.static('public'));
+
+// --------------------
+// HEALTH CHECK
+// --------------------
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+  });
 });
 
-// API routes
+// --------------------
+// API ROUTES
+// --------------------
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/users', userRoutes);
 
-// 404 handler
+// --------------------
+// 404 HANDLER
+// --------------------
 app.use((req, res) => {
-  res.status(404).json({ error: `Route ${req.method} ${req.path} not found` });
+  res.status(404).json({
+    error: `Route ${req.method} ${req.path} not found`,
+  });
 });
 
-// Global error handler
+// --------------------
+// GLOBAL ERROR HANDLER
+// --------------------
 app.use(errorHandler);
 
+// --------------------
+// START SERVER
+// --------------------
 app.listen(PORT, () => {
   console.log(`\n🚀 TaskFlow API running on port ${PORT}`);
   console.log(`   Health: http://localhost:${PORT}/health`);
-  console.log(`   Docs:   http://localhost:${PORT}/api\n`);
+  console.log(`   API:    http://localhost:${PORT}/api`);
 });
 
 module.exports = app;
