@@ -117,7 +117,7 @@ async function loadTasks() {
   if(f.priority) q.push('priority='+f.priority);
   if(f.overdue)  q.push('overdue=true');
   try {
-    const data = await api('api/tasks'+(q.length?'?'+q.join('&'):''));
+    const data = await api('/tasks'+(q.length?'?'+q.join('&'):''));
     setState({tasks: data.tasks || data, loading:false});
   } catch(e) { setState({loading:false, error: e.message}); }
 }
@@ -141,7 +141,7 @@ async function createProject(name, description) {
 
 async function createTask(data) {
   try {
-    await api('api/tasks', {method:'POST', body: JSON.stringify(data)});
+    await api('/tasks', {method:'POST', body: JSON.stringify(data)});
     setState({modalOpen:false, success:'Task created successfully!'});
     loadTasks();
     setTimeout(()=>setState({success:''}), 3000);
