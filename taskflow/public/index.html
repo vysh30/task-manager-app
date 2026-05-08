@@ -64,7 +64,7 @@ async function api(path, options={}) {
 async function login(email, password) {
   setState({loading:true, error:''});
   try {
-    const data = await api('/api/auth/login', {method:'POST', body: JSON.stringify({email, password})});
+    const data = await api('/auth/login', {method:'POST', body: JSON.stringify({email, password})});
     localStorage.setItem('tf_token', data.token);
     localStorage.setItem('tf_user', JSON.stringify(data.user));
     setState({token: data.token, user: data.user, view:'dashboard', loading:false});
@@ -75,7 +75,7 @@ async function login(email, password) {
 async function signup(name, email, password) {
   setState({loading:true, error:''});
   try {
-    const data = await api('/api/auth/signup', {method:'POST', body: JSON.stringify({name, email, password})});
+    const data = await api('/auth/signup', {method:'POST', body: JSON.stringify({name, email, password})});
     localStorage.setItem('tf_token', data.token);
     localStorage.setItem('tf_user', JSON.stringify(data.user));
     setState({token: data.token, user: data.user, view:'dashboard', loading:false});
