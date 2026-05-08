@@ -125,7 +125,7 @@ async function loadTasks() {
 async function loadUsers() {
   setState({loading:true});
   try {
-    const data = await api('api/users');
+    const data = await api('/users');
     setState({users: data.users || data, loading:false});
   } catch(e) { setState({loading:false, error: e.message}); }
 }
