@@ -44,7 +44,7 @@ Demo accounts after seeding:
 |---|---|---|---|
 | POST | `/api/auth/signup` | — | Register new user |
 | POST | `/api/auth/login` | — | Login, returns JWT |
-| GET | `/api/auth/me` | ✅ | Current user profile |
+| GET | `/api/auth/me` | YES | Current user profile |
 
 **Signup / Login body:**
 ```json
@@ -67,13 +67,13 @@ Authorization: Bearer <token>
 
 | Method | Endpoint | Auth | Role | Description |
 |---|---|---|---|---|
-| GET | `/api/projects` | ✅ | Any | List accessible projects |
-| POST | `/api/projects` | ✅ | Admin | Create project |
-| GET | `/api/projects/:id` | ✅ | Member+ | Project details + tasks + members |
-| PATCH | `/api/projects/:id` | ✅ | Owner/Admin | Update project |
-| DELETE | `/api/projects/:id` | ✅ | Owner/Admin | Delete project |
-| POST | `/api/projects/:id/members` | ✅ | Owner/Admin | Add member |
-| DELETE | `/api/projects/:id/members/:userId` | ✅ | Owner/Admin | Remove member |
+| GET | `/api/projects` | YES | Any | List accessible projects |
+| POST | `/api/projects` | YES | Admin | Create project |
+| GET | `/api/projects/:id` | YES | Member+ | Project details + tasks + members |
+| PATCH | `/api/projects/:id` | YES | Owner/Admin | Update project |
+| DELETE | `/api/projects/:id` |YES | Owner/Admin | Delete project |
+| POST | `/api/projects/:id/members` |YES | Owner/Admin | Add member |
+| DELETE | `/api/projects/:id/members/:userId` | YES | Owner/Admin | Remove member |
 
 **Create project:**
 ```json
@@ -124,10 +124,10 @@ Authorization: Bearer <token>
 
 | Method | Endpoint | Auth | Role | Description |
 |---|---|---|---|---|
-| GET | `/api/users` | ✅ | Any | List users (admins see all) |
-| GET | `/api/users/:id` | ✅ | Any | User profile + stats |
-| PATCH | `/api/users/me` | ✅ | Any | Update own profile |
-| PATCH | `/api/users/:id/role` | ✅ | Admin | Change user role |
+| GET | `/api/users` | YES | Any | List users (admins see all) |
+| GET | `/api/users/:id` | YES | Any | User profile + stats |
+| PATCH | `/api/users/me` | YES | Any | Update own profile |
+| PATCH | `/api/users/:id/role` | YES| Admin | Change user role |
 
 ---
 
@@ -203,12 +203,12 @@ tasks           — id, project_id (→projects), title, description,
 
 | Action | Member | Admin |
 |---|---|---|
-| View own projects | ✅ | ✅ (all) |
-| Create project | ❌ | ✅ |
-| Edit/delete project | ❌ | ✅ (or owner) |
-| Create task in project | ✅ | ✅ |
-| Edit own tasks | ✅ | ✅ |
-| Edit any task | ❌ | ✅ |
-| Manage members | ❌ | ✅ (or owner) |
-| View all users | ❌ | ✅ |
-| Change roles | ❌ | ✅ |
+| View own projects | YES | YES (all) |
+| Create project | NO| YES |
+| Edit/delete project | NO | YES (or owner) |
+| Create task in project | YES| YES |
+| Edit own tasks | YES | YES |
+| Edit any task | NO | YES|
+| Manage members | NO | YES (or owner) |
+| View all users | NO | YES |
+| Change roles | NO | YES |
