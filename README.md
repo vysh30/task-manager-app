@@ -56,11 +56,8 @@ Deployment
 The application is deployed on Railway and fully functional.
 
 
-Live API:
-
-https://your-app.railway
-
-
+Live :
+https://railway.com/
 
 Role Access
 Admin
