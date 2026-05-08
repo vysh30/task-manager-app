@@ -94,8 +94,8 @@ async function loadDashboard() {
   setState({loading:true});
   try {
     const [dash, proj] = await Promise.all([
-      api('/api/tasks/dashboard/summary'),
-      api('/api/projects')
+      api('/tasks/dashboard/summary'),
+      api('/projects')
     ]);
     setState({dashboard: dash, projects: proj.projects || proj, loading:false});
   } catch(e) { setState({loading:false, error: e.message}); }
@@ -117,7 +117,7 @@ async function loadTasks() {
   if(f.priority) q.push('priority='+f.priority);
   if(f.overdue)  q.push('overdue=true');
   try {
-    const data = await api('/api/tasks'+(q.length?'?'+q.join('&'):''));
+    const data = await api('/tasks'+(q.length?'?'+q.join('&'):''));
     setState({tasks: data.tasks || data, loading:false});
   } catch(e) { setState({loading:false, error: e.message}); }
 }
@@ -125,14 +125,14 @@ async function loadTasks() {
 async function loadUsers() {
   setState({loading:true});
   try {
-    const data = await api('/api/users');
+    const data = await api('/users');
     setState({users: data.users || data, loading:false});
   } catch(e) { setState({loading:false, error: e.message}); }
 }
 
 async function createProject(name, description) {
   try {
-    await api('/api/projects', {method:'POST', body: JSON.stringify({name, description})});
+    await api('/projects', {method:'POST', body: JSON.stringify({name, description})});
     setState({modalOpen:false, success:'Project created successfully!'});
     loadProjects();
     setTimeout(()=>setState({success:''}), 3000);
@@ -141,7 +141,7 @@ async function createProject(name, description) {
 
 async function createTask(data) {
   try {
-    await api('/api/tasks', {method:'POST', body: JSON.stringify(data)});
+    await api('/tasks', {method:'POST', body: JSON.stringify(data)});
     setState({modalOpen:false, success:'Task created successfully!'});
     loadTasks();
     setTimeout(()=>setState({success:''}), 3000);
@@ -150,7 +150,7 @@ async function createTask(data) {
 
 async function updateTaskStatus(id, status) {
   try {
-    await api('/api/tasks/'+id, {method:'PATCH', body: JSON.stringify({status})});
+    await api('/tasks/'+id, {method:'PATCH', body: JSON.stringify({status})});
     loadTasks();
   } catch(e) { setState({error: e.message}); }
 }
