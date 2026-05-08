@@ -104,7 +104,7 @@ async function loadDashboard() {
 async function loadProjects() {
   setState({loading:true});
   try {
-    const data = await api('/api/projects');
+    const data = await api('/projects');
     setState({projects: data.projects || data, loading:false});
   } catch(e) { setState({loading:false, error: e.message}); }
 }
