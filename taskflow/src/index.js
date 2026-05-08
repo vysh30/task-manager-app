@@ -74,7 +74,7 @@ app.use((req, res) => {
 });
 
 // --------------------
-// GLOBAL ERROR HANDLER
+// ERROR HANDLER
 // --------------------
 app.use(errorHandler);
 
@@ -82,9 +82,9 @@ app.use(errorHandler);
 // START SERVER
 // --------------------
 app.listen(PORT, () => {
-  console.log(`\n🚀 TaskFlow API running on port ${PORT}`);
-  console.log(`   Health: http://localhost:${PORT}/health`);
-  console.log(`   API:    http://localhost:${PORT}/api`);
+  console.log(`🚀 TaskFlow API running on port ${PORT}`);
+  console.log(`Health: http://localhost:${PORT}/health`);
+  console.log(`API: http://localhost:${PORT}/api`);
 });
 
 module.exports = app;
