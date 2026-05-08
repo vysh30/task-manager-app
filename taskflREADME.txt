@@ -139,8 +139,8 @@ Authorization: Bearer <token>
 git init
 git add .
 git commit -m "Initial commit"
-git remote add origin https://github.com/yourusername/taskflow.git
-git push -u origin main
+git remote add https://github.com/vysh30/taskflow
+
 ```
 
 ### 2. Deploy on Railway
