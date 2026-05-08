@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TaskFlow — Team Task Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --c1:#0f172a;--c2:#1e293b;--c3:#334155;--c4:#64748b;--c5:#94a3b8;
+  --c6:#cbd5e1;--c7:#e2e8f0;--c8:#f1f5f9;--c9:#f8fafc;
+  --acc:#6366f1;--acc2:#818cf8;--acc3:#e0e7ff;
+  --green:#10b981;--amber:#f59e0b;--red:#ef4444;--blue:#3b82f6;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--c9);color:var(--c1);min-height:100vh}
+input,select,textarea,button{font-family:'DM Sans',sans-serif}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--acc)!important}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--c6);border-radius:3px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────────────────────────
+// Replace this with your Railway URL once deployed
+const API = 'https://accomplished-compassion.railway.app';
+
+// ── STATE ───────────────────────────────────────────────────────────────────
+let state = {
+  view: 'login',
+  token: localStorage.getItem('tf_token') || null,
+  user: JSON.parse(localStorage.getItem('tf_user') || 'null'),
+  projects: [], tasks: [], users: [], dashboard: null,
+  loading: false, error: '', success: '',
+  taskFilters: {status:'', priority:'', overdue: false},
+  modalOpen: false, modalType: '',
+};
+
+function setState(updates) {
+  Object.assign(state, updates);
+  render();
+}
+
+// ── API HELPER ───────────────────────────────────────────────────────────────
+async function api(path, options={}) {
+  const headers = {'Content-Type':'application/json'};
+  if (state.token) headers['Authorization'] = 'Bearer ' + state.token;
+  try {
+    const r = await fetch(API + path, {...options, headers:{...headers,...(options.headers||{})}});
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || data.message || 'Request failed');
+    return data;
+  } catch(e) {
+    if(e.message === 'Failed to fetch') throw new Error('Cannot reach API. Check your Railway URL in the config.');
+    throw e;
+  }
+}
+
+// ── AUTH ─────────────────────────────────────────────────────────────────────
+async function login(email, password) {
+  setState({loading:true, error:''});
+  try {
+    const data = await api('/api/auth/login', {method:'POST', body: JSON.stringify({email, password})});
+    localStorage.setItem('tf_token', data.token);
+    localStorage.setItem('tf_user', JSON.stringify(data.user));
+    setState({token: data.token, user: data.user, view:'dashboard', loading:false});
+    loadDashboard();
+  } catch(e) { setState({loading:false, error: e.message}); }
+}
+
+async function signup(name, email, password) {
+  setState({loading:true, error:''});
+  try {
+    const data = await api('/api/auth/signup', {method:'POST', body: JSON.stringify({name, email, password})});
+    localStorage.setItem('tf_token', data.token);
+    localStorage.setItem('tf_user', JSON.stringify(data.user));
+    setState({token: data.token, user: data.user, view:'dashboard', loading:false});
+    loadDashboard();
+  } catch(e) { setState({loading:false, error: e.message}); }
+}
+
+function logout() {
+  localStorage.removeItem('tf_token');
+  localStorage.removeItem('tf_user');
+  setState({token:null, user:null, view:'login', projects:[], tasks:[], dashboard:null, error:''});
+}
+
+// ── DATA LOADERS ─────────────────────────────────────────────────────────────
+async function loadDashboard() {
+  setState({loading:true});
+  try {
+    const [dash, proj] = await Promise.all([
+      api('/api/tasks/dashboard/summary'),
+      api('/api/projects')
+    ]);
+    setState({dashboard: dash, projects: proj.projects || proj, loading:false});
+  } catch(e) { setState({loading:false, error: e.message}); }
+}
+
+async function loadProjects() {
+  setState({loading:true});
+  try {
+    const data = await api('/api/projects');
+    setState({projects: data.projects || data, loading:false});
+  } catch(e) { setState({loading:false, error: e.message}); }
+}
+
+async function loadTasks() {
+  setState({loading:true});
+  const f = state.taskFilters;
+  let q = [];
+  if(f.status)   q.push('status='+f.status);
+  if(f.priority) q.push('priority='+f.priority);
+  if(f.overdue)  q.push('overdue=true');
+  try {
+    const data = await api('/api/tasks'+(q.length?'?'+q.join('&'):''));
+    setState({tasks: data.tasks || data, loading:false});
+  } catch(e) { setState({loading:false, error: e.message}); }
+}
+
+async function loadUsers() {
+  setState({loading:true});
+  try {
+    const data = await api('/api/users');
+    setState({users: data.users || data, loading:false});
+  } catch(e) { setState({loading:false, error: e.message}); }
+}
+
+async function createProject(name, description) {
+  try {
+    await api('/api/projects', {method:'POST', body: JSON.stringify({name, description})});
+    setState({modalOpen:false, success:'Project created successfully!'});
+    loadProjects();
+    setTimeout(()=>setState({success:''}), 3000);
+  } catch(e) { setState({error: e.message}); }
+}
+
+async function createTask(data) {
+  try {
+    await api('/api/tasks', {method:'POST', body: JSON.stringify(data)});
+    setState({modalOpen:false, success:'Task created successfully!'});
+    loadTasks();
+    setTimeout(()=>setState({success:''}), 3000);
+  } catch(e) { setState({error: e.message}); }
+}
+
+async function updateTaskStatus(id, status) {
+  try {
+    await api('/api/tasks/'+id, {method:'PATCH', body: JSON.stringify({status})});
+    loadTasks();
+  } catch(e) { setState({error: e.message}); }
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+function statusColor(s) {
+  return {todo:'#64748b','in-progress':'#3b82f6',review:'#f59e0b',done:'#10b981'}[s]||'#94a3b8';
+}
+function priorityColor(p) {
+  return {low:'#10b981',medium:'#f59e0b',high:'#ef4444'}[p]||'#94a3b8';
+}
+function formatDate(d) {
+  if(!d) return '—';
+  return new Date(d).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
+}
+function isOverdue(t) {
+  return t.due_date && new Date(t.due_date) < new Date() && t.status !== 'done';
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────────
+function renderApp() {
+  if (!state.token) return renderAuth();
+  return `
+    <div style="display:flex;min-height:100vh">
+      ${renderSidebar()}
+      <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+        ${renderTopbar()}
+        <main style="flex:1;padding:28px 32px;overflow:auto">
+          ${state.success ? `<div style="background:#d1fae5;color:#065f46;padding:12px 16px;border-radius:10px;margin-bottom:20px;font-size:14px;font-weight:500">✓ ${state.success}</div>` : ''}
+          ${state.error   ? `<div style="background:#fee2e2;color:#991b1b;padding:12px 16px;border-radius:10px;margin-bottom:20px;font-size:14px;display:flex;justify-content:space-between;align-items:center">⚠ ${state.error}<span onclick="setState({error:''})" style="cursor:pointer;font-size:18px;line-height:1">×</span></div>` : ''}
+          ${renderView()}
+        </main>
+      </div>
+    </div>
+    ${state.modalOpen ? renderModal() : ''}
+  `;
+}
+
+// ── AUTH PAGE ─────────────────────────────────────────────────────────────────
+function renderAuth() {
+  const isLogin = state.view === 'login';
+  return `
+    <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#eef2ff 0%,#f8fafc 50%,#faf5ff 100%);padding:20px">
+      <div style="width:100%;max-width:440px">
+        <div style="text-align:center;margin-bottom:32px">
+          <div style="display:inline-flex;align-items:center;gap:12px;margin-bottom:10px">
+            <div style="width:42px;height:42px;background:var(--acc);border-radius:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(99,102,241,0.35)">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+            </div>
+            <span style="font-family:'Space Grotesk';font-size:26px;font-weight:700;color:var(--c1)">TaskFlow</span>
+          </div>
+          <p style="font-size:14px;color:var(--c4);margin-top:4px">${isLogin ? 'Welcome back — sign in to your workspace' : 'Create your account to get started'}</p>
+        </div>
+
+        <div style="background:white;border-radius:20px;padding:36px;box-shadow:0 8px 40px rgba(0,0,0,0.08);border:1px solid var(--c7)">
+          ${state.error ? `<div style="background:#fee2e2;color:#991b1b;padding:12px 14px;border-radius:10px;margin-bottom:20px;font-size:13px;line-height:1.5">${state.error}</div>` : ''}
+
+          <form onsubmit="handleAuth();return false">
+            ${!isLogin ? `
+            <div style="margin-bottom:18px">
+              <label style="display:block;font-size:13px;font-weight:500;color:var(--c3);margin-bottom:7px">Full name</label>
+              <input id="f-name" type="text" placeholder="Alex Johnson" autocomplete="name"
+                style="width:100%;padding:11px 14px;border:1.5px solid var(--c7);border-radius:11px;font-size:14px;transition:.2s;background:var(--c9)">
+            </div>` : ''}
+
+            <div style="margin-bottom:18px">
+              <label style="display:block;font-size:13px;font-weight:500;color:var(--c3);margin-bottom:7px">Email address</label>
+              <input id="f-email" type="email" placeholder="${isLogin ? 'alice@taskflow.io' : 'you@company.com'}" autocomplete="email"
+                style="width:100%;padding:11px 14px;border:1.5px solid var(--c7);border-radius:11px;font-size:14px;transition:.2s;background:var(--c9)">
+            </div>
+
+            <div style="margin-bottom:26px">
+              <label style="display:block;font-size:13px;font-weight:500;color:var(--c3);margin-bottom:7px">Password</label>
+              <input id="f-pass" type="password" placeholder="••••••••" autocomplete="${isLogin?'current-password':'new-password'}"
+                style="width:100%;padding:11px 14px;border:1.5px solid var(--c7);border-radius:11px;font-size:14px;transition:.2s;background:var(--c9)">
+            </div>
+
+            <button type="submit"
+              style="width:100%;padding:13px;background:var(--acc);color:white;border:none;border-radius:11px;font-size:15px;font-weight:600;cursor:pointer;transition:.15s;box-shadow:0 4px 14px rgba(99,102,241,0.3)"
+              onmouseover="this.style.background='#4f46e5'" onmouseout="this.style.background='var(--acc)'"
+              ${state.loading?'disabled':''}>
+              ${state.loading ? '<span style="opacity:.7">Please wait…</span>' : (isLogin ? 'Sign in →' : 'Create account →')}
+            </button>
+          </form>
+
+          ${isLogin ? `
+          <div style="margin-top:24px;padding:16px;background:var(--c9);border-radius:12px;border:1px solid var(--c7)">
+            <p style="font-size:12px;color:var(--c4);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Demo accounts</p>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+              ${[
+                ['alice@taskflow.io','alice123','Admin','Alice Chen'],
+                ['bob@taskflow.io','bob123','Member','Bob Smith'],
+                ['carmen@taskflow.io','carmen123','Member','Carmen'],
+                ['dev@taskflow.io','dev123','Admin','Dev User'],
+              ].map(([e,p,r,n])=>`
+                <button onclick="document.getElementById('f-email').value='${e}';document.getElementById('f-pass').value='${p}'"
+                  style="padding:8px 10px;font-size:12px;border:1px solid var(--c6);border-radius:8px;background:white;cursor:pointer;text-align:left;transition:.1s;line-height:1.4"
+                  onmouseover="this.style.borderColor='var(--acc)';this.style.background='var(--acc3)'"
+                  onmouseout="this.style.borderColor='var(--c6)';this.style.background='white'">
+                  <span style="font-weight:600;color:${r==='Admin'?'var(--acc)':'var(--c3)'}">${r}</span><br>
+                  <span style="color:var(--c4);font-size:11px">${n}</span>
+                </button>
+              `).join('')}
+            </div>
+          </div>` : ''}
+
+          <p style="text-align:center;margin-top:22px;font-size:13px;color:var(--c4)">
+            ${isLogin ? "Don't have an account?" : 'Already have an account?'}
+            <a onclick="setState({view:'${isLogin?'signup':'login'}',error:''})"
+              style="color:var(--acc);cursor:pointer;font-weight:600;text-decoration:none;margin-left:4px">
+              ${isLogin ? 'Sign up' : 'Sign in'}
+            </a>
+          </p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function handleAuth() {
+  const email = document.getElementById('f-email')?.value?.trim();
+  const pass  = document.getElementById('f-pass')?.value;
+  if (state.view === 'login') {
+    if (!email || !pass) return setState({error:'Please enter your email and password'});
+    login(email, pass);
+  } else {
+    const name = document.getElementById('f-name')?.value?.trim();
+    if (!name)  return setState({error:'Please enter your full name'});
+    if (!email) return setState({error:'Please enter your email'});
+    if (!pass)  return setState({error:'Please enter a password'});
+    if (pass.length < 6) return setState({error:'Password must be at least 6 characters'});
+    signup(name, email, pass);
+  }
+}
+
+// ── SIDEBAR ───────────────────────────────────────────────────────────────────
+function renderSidebar() {
+  const nav = [
+    {id:'dashboard', label:'Dashboard', icon:'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6'},
+    {id:'projects',  label:'Projects',  icon:'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10'},
+    {id:'tasks',     label:'Tasks',     icon:'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4'},
+    ...(state.user?.role==='admin' ? [{id:'users', label:'Team', icon:'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z'}] : [])
+  ];
+  return `
+    <aside style="width:230px;background:white;border-right:1px solid var(--c7);display:flex;flex-direction:column;padding:22px 14px">
+      <div style="display:flex;align-items:center;gap:10px;padding:0 6px;margin-bottom:32px">
+        <div style="width:32px;height:32px;background:var(--acc);border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 8px rgba(99,102,241,0.3)">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+        </div>
+        <span style="font-family:'Space Grotesk';font-size:18px;font-weight:700;color:var(--c1)">TaskFlow</span>
+      </div>
+
+      <nav style="flex:1">
+        ${nav.map(n=>`
+          <button onclick="navigateTo('${n.id}')"
+            style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;border:none;cursor:pointer;font-size:14px;font-weight:${state.view===n.id?'600':'400'};color:${state.view===n.id?'var(--acc)':'var(--c3)'};background:${state.view===n.id?'var(--acc3)':'transparent'};transition:.15s;text-align:left;margin-bottom:3px">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${n.icon}"/></svg>
+            ${n.label}
+            ${state.view===n.id?`<span style="margin-left:auto;width:6px;height:6px;border-radius:50%;background:var(--acc)"></span>`:''}
+          </button>
+        `).join('')}
+      </nav>
+
+      <div style="padding:12px;background:var(--c9);border-radius:12px;border:1px solid var(--c7)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <div style="width:36px;height:36px;border-radius:50%;background:var(--acc3);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--acc);flex-shrink:0">
+            ${(state.user?.name||'?').slice(0,2).toUpperCase()}
+          </div>
+          <div style="min-width:0">
+            <p style="font-size:13px;font-weight:600;color:var(--c1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${state.user?.name||''}</p>
+            <p style="font-size:11px;color:var(--c4);text-transform:capitalize">${state.user?.role||''}</p>
+          </div>
+        </div>
+        <button onclick="logout()"
+          style="width:100%;padding:7px;font-size:12px;color:var(--c4);border:1px solid var(--c6);border-radius:8px;background:white;cursor:pointer;transition:.15s"
+          onmouseover="this.style.color='var(--red)';this.style.borderColor='var(--red)'"
+          onmouseout="this.style.color='var(--c4)';this.style.borderColor='var(--c6)'">
+          Sign out
+        </button>
+      </div>
+    </aside>
+  `;
+}
+
+function navigateTo(v) {
+  setState({view:v, error:''});
+  if(v==='dashboard') loadDashboard();
+  if(v==='projects')  loadProjects();
+  if(v==='tasks')     loadTasks();
+  if(v==='users')     loadUsers();
+}
+
+// ── TOPBAR ────────────────────────────────────────────────────────────────────
+function renderTopbar() {
+  const titles = {dashboard:'Dashboard',projects:'Projects',tasks:'Tasks',users:'Team'};
+  const subtitles = {
+    dashboard:`Welcome back, ${state.user?.name?.split(' ')[0]||''}!`,
+    projects:'Manage your team projects',
+    tasks:'Track and update task progress',
+    users:'View team members and roles',
+  };
+  const actions = {
+    projects: state.user?.role==='admin'
+      ? `<button onclick="openModal('project')" style="padding:9px 18px;background:var(--acc);color:white;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(99,102,241,0.25);transition:.15s" onmouseover="this.style.background='#4f46e5'" onmouseout="this.style.background='var(--acc)'">+ New Project</button>` : '',
+    tasks: `<button onclick="openModal('task')" style="padding:9px 18px;background:var(--acc);color:white;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(99,102,241,0.25);transition:.15s" onmouseover="this.style.background='#4f46e5'" onmouseout="this.style.background='var(--acc)'">+ New Task</button>`,
+  };
+  return `
+    <header style="background:white;border-bottom:1px solid var(--c7);padding:16px 32px;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <h1 style="font-family:'Space Grotesk';font-size:20px;font-weight:700;color:var(--c1)">${titles[state.view]||''}</h1>
+        <p style="font-size:13px;color:var(--c4);margin-top:1px">${subtitles[state.view]||''}</p>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        ${state.loading ? `<span style="font-size:12px;color:var(--c5)">Loading…</span>` : ''}
+        ${actions[state.view]||''}
+      </div>
+    </header>
+  `;
+}
+
+function renderView() {
+  if(state.view==='dashboard') return renderDashboard();
+  if(state.view==='projects')  return renderProjects();
+  if(state.view==='tasks')     return renderTasks();
+  if(state.view==='users')     return renderUsers();
+  return '';
+}
+
+// ── DASHBOARD ─────────────────────────────────────────────────────────────────
+function renderDashboard() {
+  const d = state.dashboard;
+  if(!d && state.loading) return spinner();
+  if(!d) return `<div style="text-align:center;padding:60px;color:var(--c4)">No data available</div>`;
+
+  const total   = d.total_tasks ?? d.totalTasks ?? 0;
+  const inProg  = d.in_progress ?? d.inProgress ?? 0;
+  const done    = d.done ?? d.completed ?? 0;
+  const overdue = d.overdue ?? 0;
+
+  const stats = [
+    {label:'Total Tasks',  value:total,   color:'var(--acc)',  bg:'var(--acc3)',  icon:'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2'},
+    {label:'In Progress',  value:inProg,  color:'#3b82f6',     bg:'#dbeafe',      icon:'M13 10V3L4 14h7v7l9-11h-7z'},
+    {label:'Completed',    value:done,    color:'#10b981',     bg:'#d1fae5',      icon:'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'},
+    {label:'Overdue',      value:overdue, color:'#ef4444',     bg:'#fee2e2',      icon:'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'},
+  ];
+
+  const statusBreakdown = ['todo','in-progress','review','done'];
+
+  return `
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px">
+      ${stats.map(s=>`
+        <div style="background:white;border-radius:14px;padding:20px;border:1px solid var(--c7);transition:.2s" onmouseover="this.style.boxShadow='0 4px 20px rgba(0,0,0,0.06)'" onmouseout="this.style.boxShadow='none'">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+            <p style="font-size:13px;color:var(--c4);font-weight:500">${s.label}</p>
+            <div style="width:34px;height:34px;border-radius:9px;background:${s.bg};display:flex;align-items:center;justify-content:center">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${s.color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${s.icon}"/></svg>
+            </div>
+          </div>
+          <p style="font-size:32px;font-weight:700;font-family:'Space Grotesk';color:${s.color};line-height:1">${s.value}</p>
+        </div>
+      `).join('')}
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+      <div style="background:white;border-radius:14px;border:1px solid var(--c7);padding:22px">
+        <h3 style="font-size:15px;font-weight:600;margin-bottom:20px;color:var(--c1)">Status breakdown</h3>
+        ${statusBreakdown.map(s=>{
+          const count = d['status_breakdown']?.[s] ?? d[s.replace(/-/g,'_')] ?? 0;
+          const pct = total ? Math.round((count/total)*100) : 0;
+          return `
+            <div style="margin-bottom:16px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                <span style="font-size:13px;color:var(--c3);text-transform:capitalize;font-weight:500">${s.replace('-',' ')}</span>
+                <span style="font-size:13px;font-weight:600;color:var(--c1)">${count} <span style="color:var(--c5);font-weight:400">(${pct}%)</span></span>
+              </div>
+              <div style="background:var(--c8);border-radius:100px;height:8px;overflow:hidden">
+                <div style="background:${statusColor(s)};height:8px;border-radius:100px;width:${pct}%;transition:width .8s ease"></div>
+              </div>
+            </div>`;
+        }).join('')}
+      </div>
+
+      <div style="background:white;border-radius:14px;border:1px solid var(--c7);padding:22px">
+        <h3 style="font-size:15px;font-weight:600;margin-bottom:20px;color:var(--c1)">Recent projects</h3>
+        ${state.projects.length ? state.projects.slice(0,5).map(p=>`
+          <div onclick="navigateTo('projects')" style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--c8);cursor:pointer;transition:.15s" onmouseover="this.style.paddingLeft='6px'" onmouseout="this.style.paddingLeft='0'">
+            <div style="width:36px;height:36px;border-radius:9px;background:var(--acc3);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--acc);flex-shrink:0">${p.name.slice(0,2).toUpperCase()}</div>
+            <div style="flex:1;min-width:0">
+              <p style="font-size:13px;font-weight:500;color:var(--c1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name}</p>
+              <p style="font-size:11px;color:var(--c4);margin-top:1px">${p.task_count??0} tasks · ${p.member_count??0} members</p>
+            </div>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--c5)" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+          </div>
+        `).join('') : `<p style="font-size:13px;color:var(--c4);text-align:center;padding:20px 0">No projects yet</p>`}
+      </div>
+    </div>
+  `;
+}
+
+// ── PROJECTS ──────────────────────────────────────────────────────────────────
+function renderProjects() {
+  if(state.loading) return spinner();
+  const ps = state.projects;
+  if(!ps.length) return `
+    <div style="text-align:center;padding:80px 20px">
+      <div style="width:64px;height:64px;background:var(--acc3);border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--acc)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+      </div>
+      <p style="font-size:16px;font-weight:600;color:var(--c2);margin-bottom:6px">No projects yet</p>
+      <p style="font-size:14px;color:var(--c4);margin-bottom:20px">Create your first project to get started</p>
+      ${state.user?.role==='admin'?`<button onclick="openModal('project')" style="padding:11px 24px;background:var(--acc);color:white;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer">+ Create Project</button>`:''}
+    </div>`;
+
+  return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:18px">
+    ${ps.map(p=>`
+      <div style="background:white;border-radius:14px;border:1px solid var(--c7);padding:22px;transition:.2s;cursor:default"
+        onmouseover="this.style.boxShadow='0 6px 24px rgba(0,0,0,0.07)';this.style.transform='translateY(-2px)'"
+        onmouseout="this.style.boxShadow='none';this.style.transform='none'">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="width:38px;height:38px;border-radius:10px;background:var(--acc3);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--acc)">${p.name.slice(0,2).toUpperCase()}</div>
+            <h3 style="font-size:15px;font-weight:600;color:var(--c1)">${p.name}</h3>
+          </div>
+          <span style="background:var(--acc3);color:var(--acc);font-size:11px;padding:3px 9px;border-radius:100px;font-weight:600;white-space:nowrap">${p.task_count??0} tasks</span>
+        </div>
+        ${p.description?`<p style="font-size:13px;color:var(--c4);margin-bottom:14px;line-height:1.6">${p.description}</p>`:''}
+        <div style="display:flex;align-items:center;justify-content:space-between;padding-top:14px;border-top:1px solid var(--c8)">
+          <span style="font-size:12px;color:var(--c5);display:flex;align-items:center;gap:5px">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+            ${p.member_count??0} members
+          </span>
+          ${p.owner_name?`<span style="font-size:11px;color:var(--c5)">by ${p.owner_name}</span>`:''}
+        </div>
+      </div>
+    `).join('')}
+  </div>`;
+}
+
+// ── TASKS ─────────────────────────────────────────────────────────────────────
+function renderTasks() {
+  const f = state.taskFilters;
+  return `
+    <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:center">
+      <select onchange="setState({taskFilters:{...state.taskFilters,status:this.value}});loadTasks()"
+        style="padding:9px 12px;border:1.5px solid var(--c7);border-radius:10px;font-size:13px;background:white;color:var(--c2);min-width:130px">
+        <option value="">All statuses</option>
+        <option value="todo" ${f.status==='todo'?'selected':''}>Todo</option>
+        <option value="in-progress" ${f.status==='in-progress'?'selected':''}>In Progress</option>
+        <option value="review" ${f.status==='review'?'selected':''}>Review</option>
+        <option value="done" ${f.status==='done'?'selected':''}>Done</option>
+      </select>
+      <select onchange="setState({taskFilters:{...state.taskFilters,priority:this.value}});loadTasks()"
+        style="padding:9px 12px;border:1.5px solid var(--c7);border-radius:10px;font-size:13px;background:white;color:var(--c2);min-width:130px">
+        <option value="">All priorities</option>
+        <option value="low" ${f.priority==='low'?'selected':''}>Low</option>
+        <option value="medium" ${f.priority==='medium'?'selected':''}>Medium</option>
+        <option value="high" ${f.priority==='high'?'selected':''}>High</option>
+      </select>
+      <label style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--c3);cursor:pointer;padding:9px 14px;border:1.5px solid ${f.overdue?'var(--red)':'var(--c7)'};border-radius:10px;background:${f.overdue?'#fee2e2':'white'};transition:.15s">
+        <input type="checkbox" ${f.overdue?'checked':''} onchange="setState({taskFilters:{...state.taskFilters,overdue:this.checked}});loadTasks()" style="accent-color:var(--red)">
+        <span style="color:${f.overdue?'var(--red)':'var(--c3)'}">Overdue only</span>
+      </label>
+      ${state.loading?`<span style="font-size:12px;color:var(--c5)">Refreshing…</span>`:''}
+    </div>
+
+    ${!state.tasks.length && !state.loading ? `
+      <div style="text-align:center;padding:80px 20px">
+        <p style="font-size:16px;font-weight:600;color:var(--c2);margin-bottom:6px">No tasks found</p>
+        <p style="font-size:14px;color:var(--c4)">Try adjusting the filters or create a new task</p>
+      </div>` :
+    `<div style="background:white;border-radius:14px;border:1px solid var(--c7);overflow:hidden">
+      <table style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr style="background:var(--c9);border-bottom:1.5px solid var(--c7)">
+            ${['Task','Project','Assignee','Priority','Status','Due Date'].map(h=>`
+              <th style="padding:12px 16px;text-align:left;font-size:12px;font-weight:600;color:var(--c4);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap">${h}</th>
+            `).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          ${state.tasks.map(t=>`
+            <tr style="border-bottom:1px solid var(--c8);transition:.15s" onmouseover="this.style.background='var(--c9)'" onmouseout="this.style.background='white'">
+              <td style="padding:13px 16px;font-size:13px;font-weight:500;color:var(--c1);max-width:220px">
+                <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.title}</div>
+                ${t.description?`<div style="font-size:11px;color:var(--c5);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.description}</div>`:''}
+              </td>
+              <td style="padding:13px 16px;font-size:12px;color:var(--c4);white-space:nowrap">${t.project_name||'—'}</td>
+              <td style="padding:13px 16px">
+                <div style="display:flex;align-items:center;gap:7px">
+                  <div style="width:26px;height:26px;border-radius:50%;background:var(--acc3);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--acc);flex-shrink:0">${(t.assignee_name||'?').slice(0,2).toUpperCase()}</div>
+                  <span style="font-size:12px;color:var(--c3);white-space:nowrap">${t.assignee_name||'Unassigned'}</span>
+                </div>
+              </td>
+              <td style="padding:13px 16px">
+                <span style="background:${priorityColor(t.priority)}22;color:${priorityColor(t.priority)};font-size:11px;font-weight:600;padding:3px 9px;border-radius:100px;text-transform:capitalize">${t.priority||'—'}</span>
+              </td>
+              <td style="padding:13px 16px">
+                <select onchange="updateTaskStatus(${t.id},this.value)"
+                  style="padding:4px 8px;border:1.5px solid ${statusColor(t.status)};border-radius:7px;font-size:12px;color:${statusColor(t.status)};background:${statusColor(t.status)}18;outline:none;cursor:pointer;font-weight:500">
+                  ${['todo','in-progress','review','done'].map(s=>`<option value="${s}" ${t.status===s?'selected':''}>${s.replace('-',' ')}</option>`).join('')}
+                </select>
+              </td>
+              <td style="padding:13px 16px;font-size:12px;white-space:nowrap">
+                <span style="color:${isOverdue(t)?'var(--red)':'var(--c4)'};font-weight:${isOverdue(t)?'600':'400'}">
+                  ${isOverdue(t)?'⚠ ':''}${formatDate(t.due_date)}
+                </span>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>`}
+  `;
+}
+
+// ── USERS ─────────────────────────────────────────────────────────────────────
+function renderUsers() {
+  if(state.loading) return spinner();
+  const us = state.users;
+  if(!us.length) return `<div style="text-align:center;padding:60px;color:var(--c4)">No users found</div>`;
+  return `
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px">
+      ${us.map(u=>`
+        <div style="background:white;border-radius:14px;border:1px solid var(--c7);padding:20px;display:flex;align-items:center;gap:14px;transition:.2s" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,0.06)'" onmouseout="this.style.boxShadow='none'">
+          <div style="width:46px;height:46px;border-radius:50%;background:${u.role==='admin'?'var(--acc3)':'var(--c8)'};display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:${u.role==='admin'?'var(--acc)':'var(--c4)'};flex-shrink:0">
+            ${(u.name||'?').slice(0,2).toUpperCase()}
+          </div>
+          <div style="min-width:0;flex:1">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+              <p style="font-size:14px;font-weight:600;color:var(--c1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.name}</p>
+              <span style="font-size:10px;padding:2px 7px;border-radius:100px;background:${u.role==='admin'?'var(--acc3)':'var(--c8)'};color:${u.role==='admin'?'var(--acc)':'var(--c4)'};font-weight:600;flex-shrink:0;text-transform:capitalize">${u.role}</span>
+            </div>
+            <p style="font-size:12px;color:var(--c4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.email}</p>
+            ${u.task_count!=null?`<p style="font-size:11px;color:var(--c5);margin-top:2px">${u.task_count} tasks assigned</p>`:''}
+          </div>
+        </div>
+      `).join('')}
+    </div>`;
+}
+
+// ── MODAL ─────────────────────────────────────────────────────────────────────
+function openModal(type) {
+  if(type==='task' && !state.projects.length) {
+    loadProjects().then(()=>setState({modalOpen:true, modalType:type, error:''}));
+    return;
+  }
+  setState({modalOpen:true, modalType:type, error:''});
+}
+
+function renderModal() {
+  const isProject = state.modalType === 'project';
+  return `
+    <div onclick="if(event.target===this)setState({modalOpen:false,error:''})"
+      style="position:fixed;inset:0;background:rgba(15,23,42,0.5);display:flex;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(3px);padding:20px">
+      <div style="background:white;border-radius:20px;padding:32px;width:100%;max-width:480px;position:relative;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.15)">
+        <button onclick="setState({modalOpen:false,error:''})"
+          style="position:absolute;top:18px;right:18px;width:30px;height:30px;border-radius:50%;border:1px solid var(--c6);background:var(--c9);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:var(--c4);transition:.15s"
+          onmouseover="this.style.background='var(--c7)'" onmouseout="this.style.background='var(--c9)'">×</button>
+
+        <h3 style="font-size:18px;font-weight:700;margin-bottom:6px;color:var(--c1)">${isProject ? 'New Project' : 'New Task'}</h3>
+        <p style="font-size:13px;color:var(--c4);margin-bottom:24px">${isProject ? 'Create a new project for your team' : 'Add a task to track progress'}</p>
+
+        ${state.error ? `<div style="background:#fee2e2;color:#991b1b;padding:10px 14px;border-radius:9px;margin-bottom:16px;font-size:13px">${state.error}</div>` : ''}
+
+        ${isProject ? `
+          <div style="margin-bottom:16px">
+            <label style="display:block;font-size:13px;font-weight:500;color:var(--c3);margin-bottom:7px">Project name *</label>
+            <input id="m-name" type="text" placeholder="e.g. Website Redesign"
+              style="width:100%;padding:11px 14px;border:1.5px solid var(--c7);border-radius:11px;font-size:14px;background:var(--c9)">
+          </div>
+          <div style="margin-bottom:24px">
+            <label style="display:block;font-size:13px;font-weight:500;color:var(--c3);margin-bottom:7px">Description</label>
+            <textarea id="m-desc" placeholder="What is this project about?" rows="3"
+              style="width:100%;padding:11px 14px;border:1.5px solid var(--c7);border-radius:11px;font-size:14px;resize:none;background:var(--c9)"></textarea>
+          </div>
+        ` : `
+          <div style="margin-bottom:16px">
+            <label style="display:block;font-size:13px;font-weight:500;color:var(--c3);margin-bottom:7px">Task title *</label>
+            <input id="m-title" type="text" placeholder="e.g. Design homepage wireframes"
+              style="width:100%;padding:11px 14px;border:1.5px solid var(--c7);border-radius:11px;font-size:14px;background:var(--c9)">
+          </div>
+          <div style="margin-bottom:16px">
+            <label style="display:block;font-size:13px;font-weight:500;color:var(--c3);margin-bottom:7px">Project *</label>
+            <select id="m-project" style="width:100%;padding:11px 14px;border:1.5px solid var(--c7);border-radius:11px;font-size:14px;background:var(--c9)">
+              <option value="">Select a project</option>
+              ${state.projects.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}
+            </select>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+            <div>
+              <label style="display:block;font-size:13px;font-weight:500;color:var(--c3);margin-bottom:7px">Priority</label>
+              <select id="m-priority" style="width:100%;padding:11px 14px;border:1.5px solid var(--c7);border-radius:11px;font-size:14px;background:var(--c9)">
+                <option value="low">Low</option>
+                <option value="medium" selected>Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block;font-size:13px;font-weight:500;color:var(--c3);margin-bottom:7px">Status</label>
+              <select id="m-status" style="width:100%;padding:11px 14px;border:1.5px solid var(--c7);border-radius:11px;font-size:14px;background:var(--c9)">
+                <option value="todo" selected>Todo</option>
+                <option value="in-progress">In Progress</option>
+                <option value="review">Review</option>
+                <option value="done">Done</option>
+              </select>
+            </div>
+          </div>
+          <div style="margin-bottom:24px">
+            <label style="display:block;font-size:13px;font-weight:500;color:var(--c3);margin-bottom:7px">Due date</label>
+            <input id="m-due" type="date" style="width:100%;padding:11px 14px;border:1.5px solid var(--c7);border-radius:11px;font-size:14px;background:var(--c9)">
+          </div>
+        `}
+
+        <button onclick="handleModalSubmit()"
+          style="width:100%;padding:13px;background:var(--acc);color:white;border:none;border-radius:11px;font-size:15px;font-weight:600;cursor:pointer;box-shadow:0 4px 14px rgba(99,102,241,0.3);transition:.15s"
+          onmouseover="this.style.background='#4f46e5'" onmouseout="this.style.background='var(--acc)'">
+          ${isProject ? 'Create Project' : 'Create Task'}
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function handleModalSubmit() {
+  if(state.modalType === 'project') {
+    const name = document.getElementById('m-name')?.value?.trim();
+    const desc = document.getElementById('m-desc')?.value?.trim();
+    if(!name) return setState({error:'Project name is required'});
+    createProject(name, desc);
+  } else {
+    const title      = document.getElementById('m-title')?.value?.trim();
+    const project_id = document.getElementById('m-project')?.value;
+    const priority   = document.getElementById('m-priority')?.value;
+    const status     = document.getElementById('m-status')?.value;
+    const due_date   = document.getElementById('m-due')?.value;
+    if(!title)      return setState({error:'Task title is required'});
+    if(!project_id) return setState({error:'Please select a project'});
+    createTask({title, project_id:parseInt(project_id), priority, status, due_date:due_date||undefined});
+  }
+}
+
+function spinner() {
+  return `<div style="display:flex;align-items:center;justify-content:center;padding:80px;gap:10px;color:var(--c4)">
+    <div style="width:20px;height:20px;border:2px solid var(--c6);border-top-color:var(--acc);border-radius:50%;animation:spin .7s linear infinite"></div>
+    Loading…
+  </div>
+  <style>@keyframes spin{to{transform:rotate(360deg)}}</style>`;
+}
+
+// ── BOOT ──────────────────────────────────────────────────────────────────────
+function render() {
+  document.getElementById('app').innerHTML = renderApp();
+}
+
+if(state.token && state.user) {
+  state.view = 'dashboard';
+  render();
+  loadDashboard();
+} else {
+  render();
+}
+</script>
+</body>
+</html>
