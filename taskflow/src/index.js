@@ -81,6 +81,14 @@ app.use(errorHandler);
 // --------------------
 // START SERVER
 // --------------------
+const path = require('path');
+
+// Serve frontend
+app.use(express.static(path.join(__dirname, '../public')));
+
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/index.html'));
+});
 app.listen(PORT, () => {
   console.log(`🚀 TaskFlow API running on port ${PORT}`);
   console.log(`Health: http://localhost:${PORT}/health`);
