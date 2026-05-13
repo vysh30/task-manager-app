@@ -385,7 +385,7 @@ function renderDashboard() {
   if(!d && state.loading) return spinner();
   if(!d) return `<div style="text-align:center;padding:60px;color:var(--c4)">No data available</div>`;
 
-  const total   = d.total_tasks ?? d.totalTasks ?? 0;
+  const total = d.total ?? 0;
   const inProg  = d.in_progress ?? d.inProgress ?? 0;
   const done    = d.done ?? d.completed ?? 0;
   const overdue = d.overdue ?? 0;
