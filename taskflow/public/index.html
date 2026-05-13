@@ -23,12 +23,11 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--acc)!imp
 </head>
 <body>
 <div id="app"></div>
-
+ 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
-// Replace this with your Railway URL once deployed
 const API = 'https://task-manager-app-production-bed4.up.railway.app/api';
-
+ 
 // ── STATE ───────────────────────────────────────────────────────────────────
 let state = {
   view: 'login',
@@ -39,12 +38,12 @@ let state = {
   taskFilters: {status:'', priority:'', overdue: false},
   modalOpen: false, modalType: '',
 };
-
+ 
 function setState(updates) {
   Object.assign(state, updates);
   render();
 }
-
+ 
 // ── API HELPER ───────────────────────────────────────────────────────────────
 async function api(path, options={}) {
   const headers = {'Content-Type':'application/json'};
@@ -59,7 +58,7 @@ async function api(path, options={}) {
     throw e;
   }
 }
-
+ 
 // ── AUTH ─────────────────────────────────────────────────────────────────────
 async function login(email, password) {
   setState({loading:true, error:''});
@@ -71,7 +70,7 @@ async function login(email, password) {
     loadDashboard();
   } catch(e) { setState({loading:false, error: e.message}); }
 }
-
+ 
 async function signup(name, email, password) {
   setState({loading:true, error:''});
   try {
@@ -82,13 +81,13 @@ async function signup(name, email, password) {
     loadDashboard();
   } catch(e) { setState({loading:false, error: e.message}); }
 }
-
+ 
 function logout() {
   localStorage.removeItem('tf_token');
   localStorage.removeItem('tf_user');
   setState({token:null, user:null, view:'login', projects:[], tasks:[], dashboard:null, error:''});
 }
-
+ 
 // ── DATA LOADERS ─────────────────────────────────────────────────────────────
 async function loadDashboard() {
   setState({loading:true});
@@ -100,7 +99,7 @@ async function loadDashboard() {
     setState({dashboard: dash, projects: proj.projects || proj, loading:false});
   } catch(e) { setState({loading:false, error: e.message}); }
 }
-
+ 
 async function loadProjects() {
   setState({loading:true});
   try {
@@ -108,7 +107,7 @@ async function loadProjects() {
     setState({projects: data.projects || data, loading:false});
   } catch(e) { setState({loading:false, error: e.message}); }
 }
-
+ 
 async function loadTasks() {
   setState({loading:true});
   const f = state.taskFilters;
@@ -121,7 +120,7 @@ async function loadTasks() {
     setState({tasks: data.tasks || data, loading:false});
   } catch(e) { setState({loading:false, error: e.message}); }
 }
-
+ 
 async function loadUsers() {
   setState({loading:true});
   try {
@@ -129,7 +128,7 @@ async function loadUsers() {
     setState({users: data.users || data, loading:false});
   } catch(e) { setState({loading:false, error: e.message}); }
 }
-
+ 
 async function createProject(name, description) {
   try {
     await api('/projects', {method:'POST', body: JSON.stringify({name, description})});
@@ -138,7 +137,7 @@ async function createProject(name, description) {
     setTimeout(()=>setState({success:''}), 3000);
   } catch(e) { setState({error: e.message}); }
 }
-
+ 
 async function createTask(data) {
   try {
     await api('/tasks', {method:'POST', body: JSON.stringify(data)});
@@ -147,14 +146,14 @@ async function createTask(data) {
     setTimeout(()=>setState({success:''}), 3000);
   } catch(e) { setState({error: e.message}); }
 }
-
+ 
 async function updateTaskStatus(id, status) {
   try {
     await api('/tasks/'+id, {method:'PATCH', body: JSON.stringify({status})});
     loadTasks();
   } catch(e) { setState({error: e.message}); }
 }
-
+ 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 function statusColor(s) {
   return {todo:'#64748b','in-progress':'#3b82f6',review:'#f59e0b',done:'#10b981'}[s]||'#94a3b8';
@@ -169,7 +168,7 @@ function formatDate(d) {
 function isOverdue(t) {
   return t.due_date && new Date(t.due_date) < new Date() && t.status !== 'done';
 }
-
+ 
 // ── RENDER ────────────────────────────────────────────────────────────────────
 function renderApp() {
   if (!state.token) return renderAuth();
@@ -188,7 +187,7 @@ function renderApp() {
     ${state.modalOpen ? renderModal() : ''}
   `;
 }
-
+ 
 // ── AUTH PAGE ─────────────────────────────────────────────────────────────────
 function renderAuth() {
   const isLogin = state.view === 'login';
@@ -204,10 +203,10 @@ function renderAuth() {
           </div>
           <p style="font-size:14px;color:var(--c4);margin-top:4px">${isLogin ? 'Welcome back — sign in to your workspace' : 'Create your account to get started'}</p>
         </div>
-
+ 
         <div style="background:white;border-radius:20px;padding:36px;box-shadow:0 8px 40px rgba(0,0,0,0.08);border:1px solid var(--c7)">
           ${state.error ? `<div style="background:#fee2e2;color:#991b1b;padding:12px 14px;border-radius:10px;margin-bottom:20px;font-size:13px;line-height:1.5">${state.error}</div>` : ''}
-
+ 
           <form onsubmit="handleAuth();return false">
             ${!isLogin ? `
             <div style="margin-bottom:18px">
@@ -215,19 +214,19 @@ function renderAuth() {
               <input id="f-name" type="text" placeholder="Alex Johnson" autocomplete="name"
                 style="width:100%;padding:11px 14px;border:1.5px solid var(--c7);border-radius:11px;font-size:14px;transition:.2s;background:var(--c9)">
             </div>` : ''}
-
+ 
             <div style="margin-bottom:18px">
               <label style="display:block;font-size:13px;font-weight:500;color:var(--c3);margin-bottom:7px">Email address</label>
               <input id="f-email" type="email" placeholder="${isLogin ? 'alice@taskflow.io' : 'you@company.com'}" autocomplete="email"
                 style="width:100%;padding:11px 14px;border:1.5px solid var(--c7);border-radius:11px;font-size:14px;transition:.2s;background:var(--c9)">
             </div>
-
+ 
             <div style="margin-bottom:26px">
               <label style="display:block;font-size:13px;font-weight:500;color:var(--c3);margin-bottom:7px">Password</label>
               <input id="f-pass" type="password" placeholder="••••••••" autocomplete="${isLogin?'current-password':'new-password'}"
                 style="width:100%;padding:11px 14px;border:1.5px solid var(--c7);border-radius:11px;font-size:14px;transition:.2s;background:var(--c9)">
             </div>
-
+ 
             <button type="submit"
               style="width:100%;padding:13px;background:var(--acc);color:white;border:none;border-radius:11px;font-size:15px;font-weight:600;cursor:pointer;transition:.15s;box-shadow:0 4px 14px rgba(99,102,241,0.3)"
               onmouseover="this.style.background='#4f46e5'" onmouseout="this.style.background='var(--acc)'"
@@ -235,7 +234,7 @@ function renderAuth() {
               ${state.loading ? '<span style="opacity:.7">Please wait…</span>' : (isLogin ? 'Sign in →' : 'Create account →')}
             </button>
           </form>
-
+ 
           ${isLogin ? `
           <div style="margin-top:24px;padding:16px;background:var(--c9);border-radius:12px;border:1px solid var(--c7)">
             <p style="font-size:12px;color:var(--c4);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Demo accounts</p>
@@ -256,7 +255,7 @@ function renderAuth() {
               `).join('')}
             </div>
           </div>` : ''}
-
+ 
           <p style="text-align:center;margin-top:22px;font-size:13px;color:var(--c4)">
             ${isLogin ? "Don't have an account?" : 'Already have an account?'}
             <a onclick="setState({view:'${isLogin?'signup':'login'}',error:''})"
@@ -269,7 +268,7 @@ function renderAuth() {
     </div>
   `;
 }
-
+ 
 function handleAuth() {
   const email = document.getElementById('f-email')?.value?.trim();
   const pass  = document.getElementById('f-pass')?.value;
@@ -285,7 +284,7 @@ function handleAuth() {
     signup(name, email, pass);
   }
 }
-
+ 
 // ── SIDEBAR ───────────────────────────────────────────────────────────────────
 function renderSidebar() {
   const nav = [
@@ -302,7 +301,7 @@ function renderSidebar() {
         </div>
         <span style="font-family:'Space Grotesk';font-size:18px;font-weight:700;color:var(--c1)">TaskFlow</span>
       </div>
-
+ 
       <nav style="flex:1">
         ${nav.map(n=>`
           <button onclick="navigateTo('${n.id}')"
@@ -313,7 +312,7 @@ function renderSidebar() {
           </button>
         `).join('')}
       </nav>
-
+ 
       <div style="padding:12px;background:var(--c9);border-radius:12px;border:1px solid var(--c7)">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
           <div style="width:36px;height:36px;border-radius:50%;background:var(--acc3);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--acc);flex-shrink:0">
@@ -334,7 +333,7 @@ function renderSidebar() {
     </aside>
   `;
 }
-
+ 
 function navigateTo(v) {
   setState({view:v, error:''});
   if(v==='dashboard') loadDashboard();
@@ -342,7 +341,7 @@ function navigateTo(v) {
   if(v==='tasks')     loadTasks();
   if(v==='users')     loadUsers();
 }
-
+ 
 // ── TOPBAR ────────────────────────────────────────────────────────────────────
 function renderTopbar() {
   const titles = {dashboard:'Dashboard',projects:'Projects',tasks:'Tasks',users:'Team'};
@@ -370,7 +369,7 @@ function renderTopbar() {
     </header>
   `;
 }
-
+ 
 function renderView() {
   if(state.view==='dashboard') return renderDashboard();
   if(state.view==='projects')  return renderProjects();
@@ -378,27 +377,27 @@ function renderView() {
   if(state.view==='users')     return renderUsers();
   return '';
 }
-
+ 
 // ── DASHBOARD ─────────────────────────────────────────────────────────────────
 function renderDashboard() {
   const d = state.dashboard;
   if(!d && state.loading) return spinner();
   if(!d) return `<div style="text-align:center;padding:60px;color:var(--c4)">No data available</div>`;
-
-  const total = d.total ?? 0;
+ 
+  const total   = d.total ?? 0;
   const inProg  = d.in_progress ?? d.inProgress ?? 0;
   const done    = d.done ?? d.completed ?? 0;
   const overdue = d.overdue ?? 0;
-
+ 
   const stats = [
     {label:'Total Tasks',  value:total,   color:'var(--acc)',  bg:'var(--acc3)',  icon:'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2'},
     {label:'In Progress',  value:inProg,  color:'#3b82f6',     bg:'#dbeafe',      icon:'M13 10V3L4 14h7v7l9-11h-7z'},
     {label:'Completed',    value:done,    color:'#10b981',     bg:'#d1fae5',      icon:'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'},
     {label:'Overdue',      value:overdue, color:'#ef4444',     bg:'#fee2e2',      icon:'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'},
   ];
-
+ 
   const statusBreakdown = ['todo','in-progress','review','done'];
-
+ 
   return `
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px">
       ${stats.map(s=>`
@@ -413,7 +412,7 @@ function renderDashboard() {
         </div>
       `).join('')}
     </div>
-
+ 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
       <div style="background:white;border-radius:14px;border:1px solid var(--c7);padding:22px">
         <h3 style="font-size:15px;font-weight:600;margin-bottom:20px;color:var(--c1)">Status breakdown</h3>
@@ -432,7 +431,7 @@ function renderDashboard() {
             </div>`;
         }).join('')}
       </div>
-
+ 
       <div style="background:white;border-radius:14px;border:1px solid var(--c7);padding:22px">
         <h3 style="font-size:15px;font-weight:600;margin-bottom:20px;color:var(--c1)">Recent projects</h3>
         ${state.projects.length ? state.projects.slice(0,5).map(p=>`
@@ -449,7 +448,7 @@ function renderDashboard() {
     </div>
   `;
 }
-
+ 
 // ── PROJECTS ──────────────────────────────────────────────────────────────────
 function renderProjects() {
   if(state.loading) return spinner();
@@ -463,7 +462,7 @@ function renderProjects() {
       <p style="font-size:14px;color:var(--c4);margin-bottom:20px">Create your first project to get started</p>
       ${state.user?.role==='admin'?`<button onclick="openModal('project')" style="padding:11px 24px;background:var(--acc);color:white;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer">+ Create Project</button>`:''}
     </div>`;
-
+ 
   return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:18px">
     ${ps.map(p=>`
       <div style="background:white;border-radius:14px;border:1px solid var(--c7);padding:22px;transition:.2s;cursor:default"
@@ -488,7 +487,7 @@ function renderProjects() {
     `).join('')}
   </div>`;
 }
-
+ 
 // ── TASKS ─────────────────────────────────────────────────────────────────────
 function renderTasks() {
   const f = state.taskFilters;
@@ -515,7 +514,7 @@ function renderTasks() {
       </label>
       ${state.loading?`<span style="font-size:12px;color:var(--c5)">Refreshing…</span>`:''}
     </div>
-
+ 
     ${!state.tasks.length && !state.loading ? `
       <div style="text-align:center;padding:80px 20px">
         <p style="font-size:16px;font-weight:600;color:var(--c2);margin-bottom:6px">No tasks found</p>
@@ -565,7 +564,7 @@ function renderTasks() {
     </div>`}
   `;
 }
-
+ 
 // ── USERS ─────────────────────────────────────────────────────────────────────
 function renderUsers() {
   if(state.loading) return spinner();
@@ -590,36 +589,32 @@ function renderUsers() {
       `).join('')}
     </div>`;
 }
-
+ 
 // ── MODAL ─────────────────────────────────────────────────────────────────────
-
-  function openModal(type) {
+function openModal(type) {
   if(type === 'task') {
     loadProjects();
     loadUsers();
   }
-
-  setState({
-    modalOpen: true,
-    modalType: type,
-    error: ''
-  });
+  setState({modalOpen: true, modalType: type, error: ''});
 }
+ 
 function renderModal() {
   const isProject = state.modalType === 'project';
   return `
     <div onclick="if(event.target===this)setState({modalOpen:false,error:''})"
       style="position:fixed;inset:0;background:rgba(15,23,42,0.5);display:flex;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(3px);padding:20px">
       <div style="background:white;border-radius:20px;padding:32px;width:100%;max-width:480px;position:relative;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.15)">
+ 
         <button onclick="setState({modalOpen:false,error:''})"
           style="position:absolute;top:18px;right:18px;width:30px;height:30px;border-radius:50%;border:1px solid var(--c6);background:var(--c9);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:var(--c4);transition:.15s"
           onmouseover="this.style.background='var(--c7)'" onmouseout="this.style.background='var(--c9)'">×</button>
-
+ 
         <h3 style="font-size:18px;font-weight:700;margin-bottom:6px;color:var(--c1)">${isProject ? 'New Project' : 'New Task'}</h3>
         <p style="font-size:13px;color:var(--c4);margin-bottom:24px">${isProject ? 'Create a new project for your team' : 'Add a task to track progress'}</p>
-
+ 
         ${state.error ? `<div style="background:#fee2e2;color:#991b1b;padding:10px 14px;border-radius:9px;margin-bottom:16px;font-size:13px">${state.error}</div>` : ''}
-
+ 
         ${isProject ? `
           <div style="margin-bottom:16px">
             <label style="display:block;font-size:13px;font-weight:500;color:var(--c3);margin-bottom:7px">Project name *</label>
@@ -631,6 +626,11 @@ function renderModal() {
             <textarea id="m-desc" placeholder="What is this project about?" rows="3"
               style="width:100%;padding:11px 14px;border:1.5px solid var(--c7);border-radius:11px;font-size:14px;resize:none;background:var(--c9)"></textarea>
           </div>
+          <button onclick="handleModalSubmit()"
+            style="width:100%;padding:13px;background:var(--acc);color:white;border:none;border-radius:11px;font-size:15px;font-weight:600;cursor:pointer;box-shadow:0 4px 14px rgba(99,102,241,0.3);transition:.15s"
+            onmouseover="this.style.background='#4f46e5'" onmouseout="this.style.background='var(--acc)'">
+            Create Project
+          </button>
         ` : `
           <div style="margin-bottom:16px">
             <label style="display:block;font-size:13px;font-weight:500;color:var(--c3);margin-bottom:7px">Task title *</label>
@@ -663,35 +663,30 @@ function renderModal() {
               </select>
             </div>
           </div>
-        <div style="margin-bottom:16px">
-  <label style="display:block;font-size:13px;font-weight:500;color:var(--c3);margin-bottom:7px">
-    Assign To
-  </label>
-
-  <select id="m-assignee"
-    style="width:100%;padding:11px 14px;border:1.5px solid var(--c7);border-radius:11px;font-size:14px;background:var(--c9)">
-
-    <option value="">Unassigned</option>
-
-    ${(state.users || []).map(u => `
-      <option value="${u.id}">
-        ${u.name}
-      </option>
-    `).join('')}
-
-  </select>
-</div>
-
-        <button onclick="handleModalSubmit()"
-          style="width:100%;padding:13px;background:var(--acc);color:white;border:none;border-radius:11px;font-size:15px;font-weight:600;cursor:pointer;box-shadow:0 4px 14px rgba(99,102,241,0.3);transition:.15s"
-          onmouseover="this.style.background='#4f46e5'" onmouseout="this.style.background='var(--acc)'">
-          ${isProject ? 'Create Project' : 'Create Task'}
-        </button>
+          <div style="margin-bottom:16px">
+            <label style="display:block;font-size:13px;font-weight:500;color:var(--c3);margin-bottom:7px">Assign To</label>
+            <select id="m-assignee" style="width:100%;padding:11px 14px;border:1.5px solid var(--c7);border-radius:11px;font-size:14px;background:var(--c9)">
+              <option value="">Unassigned</option>
+              ${(state.users||[]).map(u=>`<option value="${u.id}">${u.name}</option>`).join('')}
+            </select>
+          </div>
+          <div style="margin-bottom:24px">
+            <label style="display:block;font-size:13px;font-weight:500;color:var(--c3);margin-bottom:7px">Due Date</label>
+            <input id="m-due" type="date"
+              style="width:100%;padding:11px 14px;border:1.5px solid var(--c7);border-radius:11px;font-size:14px;background:var(--c9)">
+          </div>
+          <button onclick="handleModalSubmit()"
+            style="width:100%;padding:13px;background:var(--acc);color:white;border:none;border-radius:11px;font-size:15px;font-weight:600;cursor:pointer;box-shadow:0 4px 14px rgba(99,102,241,0.3);transition:.15s"
+            onmouseover="this.style.background='#4f46e5'" onmouseout="this.style.background='var(--acc)'">
+            Create Task
+          </button>
+        `}
+ 
       </div>
     </div>
   `;
 }
-
+ 
 function handleModalSubmit() {
   if(state.modalType === 'project') {
     const name = document.getElementById('m-name')?.value?.trim();
@@ -704,21 +699,20 @@ function handleModalSubmit() {
     const priority   = document.getElementById('m-priority')?.value;
     const status     = document.getElementById('m-status')?.value;
     const due_date   = document.getElementById('m-due')?.value;
+    const assignee_id = document.getElementById('m-assignee')?.value;
     if(!title)      return setState({error:'Task title is required'});
     if(!project_id) return setState({error:'Please select a project'});
-    const assignee_id = document.getElementById('m-assignee')?.value;
-
-createTask({
-  title,
-  project_id: parseInt(project_id),
-  priority,
-  status,
-  due_date: due_date || undefined,
-  assignee_id: assignee_id ? parseInt(assignee_id) : null
-});
+    createTask({
+      title,
+      project_id: parseInt(project_id),
+      priority,
+      status,
+      due_date: due_date || undefined,
+      assignee_id: assignee_id ? parseInt(assignee_id) : null
+    });
   }
 }
-
+ 
 function spinner() {
   return `<div style="display:flex;align-items:center;justify-content:center;padding:80px;gap:10px;color:var(--c4)">
     <div style="width:20px;height:20px;border:2px solid var(--c6);border-top-color:var(--acc);border-radius:50%;animation:spin .7s linear infinite"></div>
@@ -726,12 +720,12 @@ function spinner() {
   </div>
   <style>@keyframes spin{to{transform:rotate(360deg)}}</style>`;
 }
-
+ 
 // ── BOOT ──────────────────────────────────────────────────────────────────────
 function render() {
   document.getElementById('app').innerHTML = renderApp();
 }
-
+ 
 if(state.token && state.user) {
   state.view = 'dashboard';
   render();
@@ -742,3 +736,4 @@ if(state.token && state.user) {
 </script>
 </body>
 </html>
+ 
