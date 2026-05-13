@@ -192,7 +192,7 @@ router.get('/dashboard/summary', (req, res) => {
     WHERE 1=1 ${projectFilter}
   `).get();
 
-  res.json({ stats });
+  res.json( stats );
 });
 
 module.exports = router;
