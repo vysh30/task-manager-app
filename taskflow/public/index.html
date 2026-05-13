@@ -89,22 +89,41 @@ function logout() {
 }
  
 // ── DATA LOADERS ─────────────────────────────────────────────────────────────
+ 
+// Fetch all projects visible to this user: owned + member-assigned.
+// Tries multiple endpoints and merges results by id so members see their projects.
+async function fetchAllProjects() {
+  // Try all likely endpoints in parallel and merge
+  const results = await Promise.allSettled([
+    api('/projects').then(d => d.projects || d),
+    api('/projects/member').then(d => d.projects || d),
+    api('/projects/all').then(d => d.projects || d),
+  ]);
+  const map = {};
+  results.forEach(r => {
+    if(r.status === 'fulfilled' && Array.isArray(r.value)) {
+      r.value.forEach(p => { map[p.id] = p; });
+    }
+  });
+  return Object.values(map);
+}
+ 
 async function loadDashboard() {
   setState({loading:true});
   try {
-    const [dash, proj] = await Promise.all([
+    const [dash, projects] = await Promise.all([
       api('/tasks/dashboard/summary'),
-      api('/projects')
+      fetchAllProjects()
     ]);
-    setState({dashboard: dash, projects: proj.projects || proj, loading:false});
+    setState({dashboard: dash, projects, loading:false});
   } catch(e) { setState({loading:false, error: e.message}); }
 }
  
 async function loadProjects() {
   setState({loading:true});
   try {
-    const data = await api('/projects');
-    setState({projects: data.projects || data, loading:false});
+    const projects = await fetchAllProjects();
+    setState({projects, loading:false});
   } catch(e) { setState({loading:false, error: e.message}); }
 }
  
@@ -353,7 +372,8 @@ function renderTopbar() {
   };
   const actions = {
     projects: state.user?.role==='admin'
-      ? `<button onclick="openModal('project')" style="padding:9px 18px;background:var(--acc);color:white;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(99,102,241,0.25);transition:.15s" onmouseover="this.style.background='#4f46e5'" onmouseout="this.style.background='var(--acc)'">+ New Project</button>` : '',
+      ? `<button onclick="openModal('project')" style="padding:9px 18px;background:var(--acc);color:white;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(99,102,241,0.25);transition:.15s" onmouseover="this.style.background='#4f46e5'" onmouseout="this.style.background='var(--acc)'">+ New Project</button>`
+      : `<span style="font-size:12px;color:var(--c5);padding:7px 13px;border:1px solid var(--c7);border-radius:9px;background:white">Only Admins can create projects</span>`,
     tasks: `<button onclick="openModal('task')" style="padding:9px 18px;background:var(--acc);color:white;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(99,102,241,0.25);transition:.15s" onmouseover="this.style.background='#4f46e5'" onmouseout="this.style.background='var(--acc)'">+ New Task</button>`,
   };
   return `
@@ -459,8 +479,15 @@ function renderProjects() {
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--acc)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
       </div>
       <p style="font-size:16px;font-weight:600;color:var(--c2);margin-bottom:6px">No projects yet</p>
-      <p style="font-size:14px;color:var(--c4);margin-bottom:20px">Create your first project to get started</p>
-      ${state.user?.role==='admin'?`<button onclick="openModal('project')" style="padding:11px 24px;background:var(--acc);color:white;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer">+ Create Project</button>`:''}
+      ${state.user?.role==='admin'
+        ? `<p style="font-size:14px;color:var(--c4);margin-bottom:20px">Create your first project to get started</p>
+           <button onclick="openModal('project')" style="padding:11px 24px;background:var(--acc);color:white;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer">+ Create Project</button>`
+        : `<p style="font-size:14px;color:var(--c4);margin-bottom:16px">No projects have been created yet.</p>
+           <div style="display:inline-flex;align-items:center;gap:8px;padding:10px 18px;background:#fef9c3;border:1px solid #fde68a;border-radius:10px;font-size:13px;color:#92400e">
+             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+             Ask an Admin to create a project, then you can add tasks to it.
+           </div>`
+      }
     </div>`;
  
   return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:18px">
@@ -517,8 +544,19 @@ function renderTasks() {
  
     ${!state.tasks.length && !state.loading ? `
       <div style="text-align:center;padding:80px 20px">
+        <div style="width:56px;height:56px;background:var(--acc3);border-radius:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--acc)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+        </div>
         <p style="font-size:16px;font-weight:600;color:var(--c2);margin-bottom:6px">No tasks found</p>
-        <p style="font-size:14px;color:var(--c4)">Try adjusting the filters or create a new task</p>
+        <p style="font-size:14px;color:var(--c4);margin-bottom:20px">
+          ${state.taskFilters.status || state.taskFilters.priority || state.taskFilters.overdue
+            ? 'No tasks match these filters. Try clearing them.'
+            : 'No tasks yet. Make sure a project exists, then create your first task.'}
+        </p>
+        <button onclick="openModal('task')"
+          style="padding:10px 22px;background:var(--acc);color:white;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(99,102,241,0.2)">
+          + New Task
+        </button>
       </div>` :
     `<div style="background:white;border-radius:14px;border:1px solid var(--c7);overflow:hidden">
       <table style="width:100%;border-collapse:collapse">
@@ -591,12 +629,18 @@ function renderUsers() {
 }
  
 // ── MODAL ─────────────────────────────────────────────────────────────────────
-function openModal(type) {
+async function openModal(type) {
+  setState({modalOpen: true, modalType: type, error: '', loading: true});
   if(type === 'task') {
-    loadProjects();
-    loadUsers();
+    // Always re-fetch so members see projects they've been assigned to
+    const [projects, users] = await Promise.all([
+      fetchAllProjects(),
+      api('/users').then(d => d.users || d).catch(() => [])
+    ]);
+    setState({projects, users, loading: false});
+  } else {
+    setState({loading: false});
   }
-  setState({modalOpen: true, modalType: type, error: ''});
 }
  
 function renderModal() {
