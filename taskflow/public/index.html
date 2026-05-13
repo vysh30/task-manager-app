@@ -594,16 +594,17 @@ function renderUsers() {
 // ── MODAL ─────────────────────────────────────────────────────────────────────
 
   function openModal(type) {
-  if(type==='task') {
-    Promise.all([loadProjects(), loadUsers()]).then(()=>{
-      setState({modalOpen:true, modalType:type, error:''});
-    });
-    return;
+  if(type === 'task') {
+    loadProjects();
+    loadUsers();
   }
 
-  setState({modalOpen:true, modalType:type, error:''});
+  setState({
+    modalOpen: true,
+    modalType: type,
+    error: ''
+  });
 }
-
 function renderModal() {
   const isProject = state.modalType === 'project';
   return `
@@ -672,7 +673,7 @@ function renderModal() {
 
     <option value="">Unassigned</option>
 
-    ${state.users.map(u => `
+    ${(state.users || []).map(u => `
       <option value="${u.id}">
         ${u.name}
       </option>
