@@ -77,8 +77,9 @@ CORS
 Rate limiting
 Request validationy.app
 
-Author
+## 👩‍💻 Author
 
-Vyshnavi
+**Vyshnavi Gandla** — B.Tech ECIE, KITS Warangal '26
 
-GitHub: https://github.com/vysh30
+[![GitHub](https://img.shields.io/badge/GitHub-vysh30-181717?style=flat&logo=github)](https://github.com/vysh30)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0A66C2?style=flat&logo=linkedin)](https://linkedin.com/in/https://www.linkedin.com/in/vyshnavipatel3021/)
